@@ -21,67 +21,46 @@ def model(func, max_depth=10):
     weights = np.array(weights, dtype=float)
     weights /= weights.sum(axis=1)[:, None]
 
-    def is_flat(func, face, nodes):
+    nodes = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=float)
+    faces = []
+    queue = [(0, [0, 1, 2]), (0, [0, 2, 3])]
+
+    def is_flat(face):
         """
         Test if the function is flat enough on the given surface.
         Return True if the function is flat enough, False otherwise.
         """
-        ia, ib, ic = face
-        ax, ay = nodes[ia]
-        bx, by = nodes[ib]
-        cx, cy = nodes[ic]
-        a = func(ax, ay)
-        b = func(bx, by)
-        c = func(cx, cy)
-        for i in range(len(weights)):
-            w = weights[i]
-            sample_x = w[0] * ax + w[1] * bx + w[2] * cx
-            sample_y = w[0] * ay + w[1] * by + w[2] * cy
-            expected = w[0] * a + w[1] * b + w[2] * c
-            actual = func(sample_x, sample_y)
-            if np.linalg.norm(actual - expected) > 0.01:
-                return False
-        return True
+        vertices = nodes[face]
+        outputs = func(weights @ vertices)
+        expects = weights @ func(vertices)
+        diff = np.linalg.norm(outputs - expects, axis=1)
+        return np.all(diff < 0.01)
 
-    def divide(func, face, nodes, max_depth=10, depth=0):
-
-        if depth == max_depth:
-            return nodes, [face]
-
-        if is_flat(func, face, nodes):
-            return nodes, [face]
+    while queue:
+        depth, face = queue.pop()
+        if depth == max_depth or is_flat(face):
+            faces.append(face)
+            continue
 
         ia, ib, ic = face
-        a = nodes[ia]
-        b = nodes[ib]
-        c = nodes[ic]
-        ab = (a + b) / 2
-        bc = (b + c) / 2
-        ca = (c + a) / 2
-        nodes = np.vstack([nodes, ab, bc, ca])
-        ab_idx = len(nodes) - 3
-        bc_idx = len(nodes) - 2
-        ca_idx = len(nodes) - 1
+        points = nodes[face]
+        rotated_points = np.roll(points, -1, axis=0)
+        new_nodes = (points + rotated_points) / 2
+        iab = len(nodes)
+        ibc = iab + 1
+        ica = ibc + 1
+        nodes = np.vstack([nodes, new_nodes])
+
         sub_faces = [
-            [ia, ab_idx, ca_idx],
-            [ab_idx, ib, bc_idx],
-            [ca_idx, bc_idx, ic],
-            [ab_idx, bc_idx, ca_idx],
+            [ia, iab, ica],
+            [iab, ib, ibc],
+            [ica, ibc, ic],
+            [iab, ibc, ica],
         ]
-        result_faces = []
-        for face in sub_faces:
-            updated_nodes, sub_faces = divide(func, face, nodes, max_depth, depth + 1)
-            nodes = updated_nodes
-            result_faces.extend(sub_faces)
-        return nodes, result_faces
+        for sub_face in sub_faces:
+            queue.append((depth + 1, sub_face))
 
-    nodes = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
-    faces = [[0, 1, 2], [0, 2, 3]]
-    result_faces = []
-    for face in faces:
-        nodes, sub_faces = divide(func, face, nodes, max_depth)
-        result_faces.extend(sub_faces)
-    return nodes, result_faces
+    return nodes, faces
 
 
 def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
@@ -90,18 +69,17 @@ def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
     """
 
     is_upper = x < 0.5
-    if is_upper:
-        x *= 2
-    else:
-        x = 2 * (1 - x)
+    x[is_upper] = x[is_upper] * 2
+    x[~is_upper] = 2 * (1 - x[~is_upper])
 
     # Camber line
-    if x < p:
-        yc = m / p**2 * (2 * p * x - x**2)
-        dyc = 2 * m / p**2 * (p - x)
-    else:
-        yc = m / (1 - p) ** 2 * (1 - 2 * p + 2 * p * x - x**2)
-        dyc = 2 * m / (1 - p) ** 2 * (p - x)
+    yc = np.zeros_like(x)
+    dyc = np.zeros_like(x)
+    yc[x < p] = m / p**2 * (2 * p * x[x < p] - x[x < p] ** 2)
+    yc[x >= p] = m / (1 - p) ** 2 * (1 - 2 * p + 2 * p * x[x >= p] - x[x >= p] ** 2)
+    dyc[x < p] = 2 * m / p**2 * (p - x[x < p])
+    dyc[x >= p] = 2 * m / (1 - p) ** 2 * (p - x[x >= p])
+
     yt = (
         5
         * t
@@ -118,19 +96,17 @@ def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
     # Angle of the camber line
     theta = np.arctan(dyc)
 
-    if is_upper:
-        # Upper surface
-        xp = x - yt * np.sin(theta)
-        yp = yc + yt * np.cos(theta)
-    else:
-        # Lower surface
-        xp = x + yt * np.sin(theta)
-        yp = yc - yt * np.cos(theta)
+    xp = np.zeros_like(x)
+    yp = np.zeros_like(x)
+    xp[is_upper] = x[is_upper] - yt[is_upper] * np.sin(theta[is_upper])
+    yp[is_upper] = yc[is_upper] + yt[is_upper] * np.cos(theta[is_upper])
+    xp[~is_upper] = x[~is_upper] + yt[~is_upper] * np.sin(theta[~is_upper])
+    yp[~is_upper] = yc[~is_upper] - yt[~is_upper] * np.cos(theta[~is_upper])
 
     return xp, yp
 
 
-def wing(t, x):
+def wing(x):
     """
     x: right
     y: up
@@ -142,38 +118,41 @@ def wing(t, x):
     taper_ratio = 0.45  # 테이퍼율 - 본체 쪽과 끝쪽의 폭 비율
     aspect_ratio = 5.6  # 가로세로비 - 날개의 길이와 폭의 비율
 
-    # Get airfoil shape
-    zp, yp = airfoil(t)
+    ts = x[:, 0]  # Airfoil parameter
+    ls = x[:, 1]  # Spanwise parameter
 
-    # Apply taper ratio
-    zp = zp * (1 - x) + zp * x * taper_ratio
-    yp = yp * (1 - x) + yp * x * taper_ratio
+    # Get airfoil shape
+    zp, yp = airfoil(ts)
 
     # Apply aspect ratio
-    x = x * aspect_ratio
+    xs = ls * aspect_ratio
+
+    # Apply taper ratio
+    zp = zp * (1 - ls) + zp * ls * taper_ratio
+    yp = yp * (1 - ls) + yp * ls * taper_ratio
 
     # Apply angle of attack
     zp = zp * np.cos(angle_of_attack) + yp * np.sin(angle_of_attack)
     yp = yp * np.cos(angle_of_attack) - zp * np.sin(angle_of_attack)
 
     # Apply sweepback angle
-    zp = zp + x * np.tan(sweepback_angle)
-    yp = yp
+    zp = zp + xs * np.tan(sweepback_angle)
 
     # Apply dihedral angle
-    zp = zp
-    yp = yp + x * np.tan(dihedral_angle)
+    yp = yp + xs * np.tan(dihedral_angle)
 
-    return np.array([zp, x, yp]) * 20
+    return np.column_stack([zp, xs, yp]) * 20
 
 
 def __main__():
     nodes, faces = model(wing, max_depth=10)
+    print(f"Number of vertices: {len(nodes)}")
+    print(f"Number of faces: {len(faces)}")
+
     fig = plt.figure()
 
     # Map 2D to 3D
-    points = [wing(nodes[i, 0], nodes[i, 1]) for i in range(len(nodes))]
-    points = np.array(points)
+    points = wing(nodes)
 
     # Save to obj file
     with open("output.obj", "w") as f:
@@ -190,7 +169,13 @@ def __main__():
     ax.set_xlabel("Z")
     ax.set_ylabel("X")
     ax.set_zlabel("Y")
-    plt.savefig("output-model.png")
+    plt.savefig("output-model-default.png")
+    ax.view_init(0, 0)
+    plt.savefig("output-model-front.png")
+    ax.view_init(0, 90)
+    plt.savefig("output-model-right.png")
+    ax.view_init(90, 0)
+    plt.savefig("output-model-top.png")
     plt.close()
 
     # Draw 2D scatter
