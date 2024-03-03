@@ -1,4 +1,3 @@
-from matplotlib import pyplot as plt
 import numpy as np
 
 
@@ -69,8 +68,8 @@ def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
     """
 
     is_upper = x < 0.5
-    x[is_upper] = x[is_upper] * 2
-    x[~is_upper] = 2 * (1 - x[~is_upper])
+    x[is_upper] = x[is_upper] * 2  # 0~0.5 -> 0~1
+    x[~is_upper] = 2 * (1 - x[~is_upper])  # 0.5~1 -> 1~0
 
     # Camber line
     yc = np.zeros_like(x)
@@ -144,45 +143,20 @@ def wing(x):
     return np.column_stack([zp, xs, yp]) * 20
 
 
-def __main__():
+def main():
     nodes, faces = model(wing, max_depth=10)
+    vertices = wing(nodes)
     print(f"Number of vertices: {len(nodes)}")
     print(f"Number of faces: {len(faces)}")
-
-    fig = plt.figure()
-
-    # Map 2D to 3D
-    points = wing(nodes)
-
-    # Save to obj file
+    np.savetxt("nodes.csv", nodes, delimiter=",")
+    np.savetxt("vertices.csv", vertices, delimiter=",")
+    np.savetxt("faces.csv", faces, delimiter=",", fmt="%d")
     with open("output.obj", "w") as f:
-        for i in range(len(points)):
-            f.write(f"v {points[i, 0]} {points[i, 1]} {points[i, 2]}\n")
+        for i in range(len(vertices)):
+            f.write(f"v {vertices[i, 0]} {vertices[i, 1]} {vertices[i, 2]}\n")
         for i in range(len(faces)):
             f.write(f"f {faces[i][0] + 1} {faces[i][1] + 1} {faces[i][2] + 1}\n")
 
-    # Draw 3D surface
-    ax = fig.add_subplot(111, projection="3d")
-    xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
-    ax.plot_trisurf(xs, ys, zs, triangles=faces, cmap="viridis")
-    plt.axis("equal")
-    ax.set_xlabel("Z")
-    ax.set_ylabel("X")
-    ax.set_zlabel("Y")
-    plt.savefig("output-model-default.png")
-    ax.view_init(0, 0)
-    plt.savefig("output-model-front.png")
-    ax.view_init(0, 90)
-    plt.savefig("output-model-right.png")
-    ax.view_init(90, 0)
-    plt.savefig("output-model-top.png")
-    plt.close()
 
-    # Draw 2D scatter
-    plt.scatter(nodes[:, 0], nodes[:, 1], s=1)
-    plt.axis("equal")
-    plt.savefig("output-vertices.png")
-    plt.close()
-
-
-__main__()
+if __name__ == "__main__":
+    main()
