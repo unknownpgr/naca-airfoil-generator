@@ -62,10 +62,14 @@ def model(func, max_depth=10):
     return nodes, faces
 
 
-def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
+def airfoil(x):
     """
     Define the airfoil shape using the NACA airfoil.
     """
+
+    m = 0.1
+    p = 0.6
+    t = 0.15
 
     is_upper = x < 0.5
     x[is_upper] = x[is_upper] * 2  # 0~0.5 -> 0~1
@@ -82,7 +86,6 @@ def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
     yt = (
         5
         * t
-        * c
         * (
             0.2969 * np.sqrt(x)
             - 0.1260 * x
@@ -91,7 +94,6 @@ def airfoil(x, m=0.1, p=0.6, t=0.15, c=1):
             - 0.1015 * x**4
         )
     )
-
     # Angle of the camber line
     theta = np.arctan(dyc)
 
@@ -148,10 +150,10 @@ def main():
     vertices = wing(nodes)
     print(f"Number of vertices: {len(nodes)}")
     print(f"Number of faces: {len(faces)}")
-    np.savetxt("nodes.csv", nodes, delimiter=",")
-    np.savetxt("vertices.csv", vertices, delimiter=",")
-    np.savetxt("faces.csv", faces, delimiter=",", fmt="%d")
-    with open("output.obj", "w") as f:
+    np.savetxt("output/data-nodes.csv", nodes, delimiter=",")
+    np.savetxt("output/data-vertices.csv", vertices, delimiter=",")
+    np.savetxt("output/data-faces.csv", faces, delimiter=",", fmt="%d")
+    with open("output/model.obj", "w") as f:
         for i in range(len(vertices)):
             f.write(f"v {vertices[i, 0]} {vertices[i, 1]} {vertices[i, 2]}\n")
         for i in range(len(faces)):

@@ -4,33 +4,39 @@ import numpy as np
 
 def main():
     # Load data from csv files
-    nodes = np.loadtxt("nodes.csv", delimiter=",")
-    faces = np.loadtxt("faces.csv", delimiter=",", dtype=int)
-    vertices = np.loadtxt("vertices.csv", delimiter=",")
+    print("Loading data...")
+    nodes = np.loadtxt("output/data-nodes.csv", delimiter=",")
+    faces = np.loadtxt("output/data-faces.csv", delimiter=",", dtype=int)
+    vertices = np.loadtxt("output/data-vertices.csv", delimiter=",")
 
-    fig = plt.figure()
+    # Set dpi
+    plt.rcParams["figure.dpi"] = 300
 
     # Draw 3D surface
+    print("Drawing...")
+    fig = plt.figure(figsize=(6.4, 4.8))
     ax = fig.add_subplot(111, projection="3d")
     xs, ys, zs = vertices[:, 0], vertices[:, 1], vertices[:, 2]
     ax.plot_trisurf(xs, ys, zs, triangles=faces, cmap="viridis")
-    plt.axis("equal")
+    ax.axis("equal")
     ax.set_xlabel("Z")
     ax.set_ylabel("X")
     ax.set_zlabel("Y")
-    plt.savefig("output-model-default.png")
+    fig.savefig("output/graph-model-default.png", bbox_inches="tight")
     ax.view_init(0, 0)
-    plt.savefig("output-model-front.png")
+    fig.savefig("output/graph-model-front.png", bbox_inches="tight")
     ax.view_init(0, 90)
-    plt.savefig("output-model-right.png")
+    fig.savefig("output/graph-model-right.png", bbox_inches="tight")
     ax.view_init(90, 0)
-    plt.savefig("output-model-top.png")
+    fig.savefig("output/graph-model-top.png", bbox_inches="tight")
     plt.close()
 
     # Draw 2D scatter
-    plt.scatter(nodes[:, 0], nodes[:, 1], s=1)
-    plt.axis("equal")
-    plt.savefig("output-vertices.png")
+    fig = plt.figure(figsize=(6.4, 4.8))
+    ax = fig.add_subplot(111)
+    ax.scatter(nodes[:, 0], nodes[:, 1], s=0.1)
+    ax.axis("equal")
+    fig.savefig("output/graph-vertices.png")
     plt.close()
 
 
