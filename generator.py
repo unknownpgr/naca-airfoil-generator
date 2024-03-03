@@ -125,12 +125,23 @@ def wing(x):
     # Get airfoil shape
     zp, yp = airfoil(ts)
 
+    # Increase ls for the tip
+    ls = ls * 1.2 - 0.1
+
     # Apply aspect ratio
     xs = ls * aspect_ratio
 
     # Apply taper ratio
     zp = zp * (1 - ls) + zp * ls * taper_ratio
     yp = yp * (1 - ls) + yp * ls * taper_ratio
+
+    # Close tips
+    zp[ls < 0] *= 1 + ls[ls < 0] * 10
+    yp[ls < 0] *= 1 + ls[ls < 0] * 10
+    yp[ls > 1] *= 1 - (ls[ls > 1] - 1) * 10
+    zp[ls > 1] *= 1 - (ls[ls > 1] - 1) * 10
+    xs[ls < 0] = 0
+    xs[ls > 1] = aspect_ratio
 
     # Apply angle of attack
     zp = zp * np.cos(angle_of_attack) + yp * np.sin(angle_of_attack)
