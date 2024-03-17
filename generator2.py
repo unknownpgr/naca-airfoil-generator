@@ -40,15 +40,116 @@ def test_surface(rect, func):
     weighted_output = test_weights @ output_points
 
     diff = test_outputs - weighted_output
-    diff = np.linalg.norm(diff, axis=1).mean()
+    diff = np.linalg.norm(diff, axis=1)
     return diff
 
 
-def surface_func(v):
-    xs = v[:, 0]
-    ys = v[:, 1]
-    return np.stack([xs, ys, np.sin((xs**2 + ys**2) * 2)], axis=1)
+def airfoil(x):
+    """
+    Define the airfoil shape using the NACA airfoil.
+    """
 
+    m = 0.1
+    p = 0.6
+    t = 0.15
+
+    is_upper = x < 0.5
+    x[is_upper] = x[is_upper] * 2  # 0~0.5 -> 0~1
+    x[~is_upper] = 2 * (1 - x[~is_upper])  # 0.5~1 -> 1~0
+
+    # Camber line
+    yc = np.zeros_like(x)
+    dyc = np.zeros_like(x)
+    yc[x < p] = m / p**2 * (2 * p * x[x < p] - x[x < p] ** 2)
+    yc[x >= p] = m / (1 - p) ** 2 * (1 - 2 * p + 2 * p * x[x >= p] - x[x >= p] ** 2)
+    dyc[x < p] = 2 * m / p**2 * (p - x[x < p])
+    dyc[x >= p] = 2 * m / (1 - p) ** 2 * (p - x[x >= p])
+
+    yt = (
+        5
+        * t
+        * (
+            0.2969 * np.sqrt(x)
+            - 0.1260 * x
+            - 0.3516 * x**2
+            + 0.2843 * x**3
+            - 0.1015 * x**4
+        )
+    )
+    # Angle of the camber line
+    theta = np.arctan(dyc)
+
+    xp = np.zeros_like(x)
+    yp = np.zeros_like(x)
+    xp[is_upper] = x[is_upper] - yt[is_upper] * np.sin(theta[is_upper])
+    yp[is_upper] = yc[is_upper] + yt[is_upper] * np.cos(theta[is_upper])
+    xp[~is_upper] = x[~is_upper] + yt[~is_upper] * np.sin(theta[~is_upper])
+    yp[~is_upper] = yc[~is_upper] - yt[~is_upper] * np.cos(theta[~is_upper])
+
+    return xp, yp
+
+
+def wing(x):
+    """
+    x: right
+    y: up
+    z: backword
+    """
+    angle_of_attack = 0.2  # 받음각 - x축 기준 날개 단면의 각도
+    sweepback_angle = 0.5  # 후퇴각 - y축 기준 날개가 x축과 이루는 각도
+    dihedral_angle = 0.13  # 상반각 - z축 기준 날개가 x축과 이루는 각도
+    taper_ratio = 0.4  # 테이퍼율 - 본체 쪽과 끝쪽의 폭 비율
+    aspect_ratio = 5.6 / 2  # 가로세로비 - 날개의 길이와 폭의 비율
+
+    # Deep clone x
+    x = np.array(x)
+
+    ts = x[:, 0]  # Airfoil parameter
+    ls = x[:, 1]  # Spanwise parameter
+
+    # Get airfoil shape
+    zp, yp = airfoil(ts)
+
+    # Increase ls for the tip
+    ls = ls * 1.2 - 0.1
+
+    # Apply aspect ratio
+    xs = ls * aspect_ratio
+
+    # Apply taper ratio
+    zp = zp * (1 - ls) + zp * ls * taper_ratio
+    yp = yp * (1 - ls) + yp * ls * taper_ratio
+
+    # Close tips
+    zp[ls < 0] *= 1 + ls[ls < 0] * 10
+    yp[ls < 0] *= 1 + ls[ls < 0] * 10
+    yp[ls > 1] *= 1 - (ls[ls > 1] - 1) * 10
+    zp[ls > 1] *= 1 - (ls[ls > 1] - 1) * 10
+    xs[ls < 0] = 0
+    xs[ls > 1] = aspect_ratio
+
+    # Apply angle of attack
+    zp = zp * np.cos(angle_of_attack) + yp * np.sin(angle_of_attack)
+    yp = yp * np.cos(angle_of_attack) - zp * np.sin(angle_of_attack)
+
+    # Apply sweepback angle
+    zp = zp + xs * np.tan(sweepback_angle)
+
+    # Apply dihedral angle
+    yp = yp + xs * np.tan(dihedral_angle)
+
+    return np.column_stack([zp, xs, yp]) * 20
+
+
+def surface_func(v):
+    ts = v[:, 0]
+    ys = v[:, 1]
+    return np.stack(
+        [np.sin(ts * 20) * ts * (ys + 2), np.cos(ts * 20) * ts * (ys + 2), ys], axis=1
+    )
+
+
+surface_func = wing
 
 points = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=np.float32)
 
@@ -90,14 +191,14 @@ stack = [(0, first_face)]
 faces = []
 while stack:
     depth, face = stack.pop()
-    if depth == 5:
+    if depth == 8:
         faces.append(face)
         continue
 
     indexes = [face[0][0], face[0][1], face[1][0], face[1][1]]
     rect = points[indexes]
     diff = test_surface(rect, surface_func)
-    if diff < 0.01:
+    if np.all(diff < 0.001):
         faces.append(face)
         continue
 
@@ -119,6 +220,8 @@ while stack:
     stack.append((depth + 1, [lt, mt, ml, tl]))
     stack.append((depth + 1, [mb, rb, br, mr]))
     stack.append((depth + 1, [mt, rt, mr, tr]))
+
+print("Dividing finished.")
 
 vertices = surface_func(points)
 result_faces = []
@@ -152,14 +255,33 @@ for face in faces:
 
 result_faces = np.array(result_faces, dtype=np.int32)
 
+print("Triangulation finished.")
+
+with open("model.obj", "w") as f:
+    # f.write("# Vertices\n")
+    for v in vertices:
+        f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+    # f.write("# Faces\n")
+    for face in result_faces:
+        f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+
+print("Model saved.")
+
 fig = plt.figure()
 ax = fig.add_subplot(111, projection="3d")
-ax.plot_trisurf(vertices[:, 0], vertices[:, 1], vertices[:, 2], triangles=result_faces)
+ax.plot_trisurf(
+    vertices[:, 0],
+    vertices[:, 1],
+    vertices[:, 2],
+    triangles=result_faces,
+    cmap="viridis",
+)
 plt.savefig("test.png")
 plt.clf()
 
-plt.triplot(vertices[:, 0], vertices[:, 1], result_faces)
-plt.plot(vertices[:, 0], vertices[:, 1], "o")
+plt.axis("equal")
+# plt.triplot(points[:, 0], points[:, 1], result_faces,
+plt.plot(points[:, 0], points[:, 1], "o", markersize=1)
 plt.savefig("test2.png")
 plt.clf()
 
