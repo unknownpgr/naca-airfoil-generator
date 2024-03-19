@@ -70,7 +70,6 @@ print("Visualizing 3D model")
 fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111, projection="3d")
 ax.set_box_aspect([1, 1, 1])
-ax.set_proj_type("ortho")
 plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 ax.plot_trisurf(
     model.vertices[:, 0],

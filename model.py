@@ -82,7 +82,7 @@ def wing(
     zp, yp = airfoil(ts, angle_of_attack=angle_of_attack)
 
     # Apply aspect ratio (therefore xs is spanwise parameter)
-    xs = ls * aspect_ratio
+    xs = ls * aspect_ratio / 2
 
     # Apply taper ratio
     zp = zp * (1 - ls) + zp * ls * taper_ratio
