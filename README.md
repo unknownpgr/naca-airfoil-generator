@@ -1,6 +1,7 @@
 # NACA Airfoil Wing 3D Model Generator
 
-![](./output/graph-model-default.png)
+![](./output/airfoil-1.png)
+![](./output/airfoil-2.png)
 
 ## Usage
 

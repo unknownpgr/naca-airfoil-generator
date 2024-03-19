@@ -68,21 +68,6 @@ class Modeler:
         return triangles
 
     @staticmethod
-    def close_edge(model, edge, reverse_face=False):
-        edge_vertices = model.vertices[edge]
-        center = edge_vertices.mean(axis=0)
-        center_index = len(model.vertices)
-        model.vertices = np.vstack([model.vertices, center])
-        new_faces = []
-        for i in range(len(edge) - 1):
-            new_faces.append([edge[i], edge[i + 1], center_index])
-        new_faces.append([edge[-1], edge[0], center_index])
-        new_faces = np.array(new_faces, dtype=np.int32)
-        if reverse_face:
-            new_faces = new_faces[:, ::-1]
-        model.faces = np.vstack([model.faces, new_faces])
-
-    @staticmethod
     def weave_edges(model, edge1, edge2):
         vs1 = model.vertices[edge1]
         vs2 = model.vertices[edge2]
@@ -110,6 +95,28 @@ class Modeler:
                 i1 += 1
 
         model.faces = np.vstack([model.faces, new_faces])
+
+    @staticmethod
+    def close_edge(model, edge, reverse_face=False):
+        if len(edge) < 3:
+            raise ValueError("Cannot close an edge with less than 3 vertices")
+
+        if len(edge) == 3:
+            new_faces = []
+            if reverse_face:
+                new_faces.append([edge[0], edge[2], edge[1]])
+            else:
+                new_faces.append([edge[0], edge[1], edge[2]])
+            model.faces = np.vstack([model.faces, new_faces])
+            return
+
+        n = len(edge)
+        left = edge[: n // 2]
+        right = edge[n // 2 :]
+        if reverse_face:
+            left, right = right, left
+        left = left[::-1]
+        Modeler.weave_edges(model, left, right)
 
     def __init__(self):
         test_weights = [
@@ -155,7 +162,13 @@ class Modeler:
         children.append(c2)
         return [c1, c2]
 
-    def __test_surface(self, rect, func):
+    def __test_flatness(self, rect, func):
+        """
+        주어진 rect가 얼마나 flat한지 테스트한다.
+        평면 근사를 통한 판정을 포함한 여러 방법을 테스트해봤지만,
+        이 방법이 제일 낫다.
+        평면 판정의 경우 심하게 구부러진 도형을 평면으로 판정하는 경우가 많았다.
+        """
         test_inputs = self.__test_weights @ rect
         test_outputs = func(test_inputs)
 
@@ -164,7 +177,7 @@ class Modeler:
 
         diff = test_outputs - weighted_output
         diff = np.linalg.norm(diff, axis=1)
-        return diff
+        return np.max(diff)
 
     def model(self, func, max_depth=7, threshold=0.05):
         self.__initialize()
@@ -185,8 +198,8 @@ class Modeler:
 
             indexes = [face[0][0], face[0][1], face[1][0], face[1][1]]
             rect = self.__points[indexes]
-            diff = self.__test_surface(rect, func)
-            if np.all(diff < threshold):
+            diff = self.__test_flatness(rect, func)
+            if diff < threshold:
                 faces.append(face)
                 continue
 
