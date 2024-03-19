@@ -88,11 +88,13 @@ def wing(x):
     return np.column_stack([xs, zp, yp])
 
 
-def base(t, r=1):
-    angle = -(t + 0.5) * 2 * np.pi
-    zp = np.cos(angle) * r + 0.5
-    yp = np.sin(angle) * r + 0.05
-    return zp, yp
+def circle(t, r=1, x=0, y=0):
+    # t: 0~1
+    # angle: from pi, counter-clockwise
+    angle = -2 * np.pi * (t + 0.5)
+    xs = np.cos(angle) * r + x
+    ys = np.sin(angle) * r + y
+    return xs, ys
 
 
 def mount(x):
@@ -106,8 +108,8 @@ def mount(x):
     ls = ls * (1 + T) - T
     xs[ls < 0] = ls[ls < 0]
     ls[ls < 0] = 0
-    azp, ayp = base(ts, r=0.5)
-    mzp, myp = base(ts)
+    azp, ayp = circle(ts, r=0.5, x=0.5, y=0.05)
+    mzp, myp = circle(ts, x=0.5, y=0.05)
     zp = mzp * (1 - ls) + azp * ls
     yp = myp * (1 - ls) + ayp * ls
     return np.column_stack([xs, zp, yp])

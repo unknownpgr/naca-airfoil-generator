@@ -164,10 +164,8 @@ class Modeler:
 
     def __test_flatness(self, rect, func):
         """
-        주어진 rect가 얼마나 flat한지 테스트한다.
-        평면 근사를 통한 판정을 포함한 여러 방법을 테스트해봤지만,
-        이 방법이 제일 낫다.
-        평면 판정의 경우 심하게 구부러진 도형을 평면으로 판정하는 경우가 많았다.
+        Test the flatness (linearity) of the given rect.
+        Compare W@f(rect) and f(W@rect).
         """
         test_inputs = self.__test_weights @ rect
         test_outputs = func(test_inputs)
