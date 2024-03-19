@@ -1,10 +1,11 @@
+import numpy as np
 from model import wing_with_mount
 from modeler import Modeler
 from matplotlib import pyplot as plt
 
 print("Start modeling")
 modeler = Modeler()
-model = modeler.model(wing_with_mount, max_depth=8, threshold=0.005)
+model = modeler.model(wing_with_mount, max_depth=7, threshold=0.01)
 Modeler.close_edge(model, model.initial_left)
 Modeler.close_edge(model, model.initial_right, reverse_face=True)
 Modeler.weave_edges(model, model.initial_bottom, model.initial_top)
@@ -38,6 +39,32 @@ plt.triplot(
 plt.savefig("output/mesh.png")
 plt.clf()
 
+print("Visualizing test points")
+initial_points = [
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [1, 1],
+]
+initial_points = np.array(initial_points)
+weights = modeler.get_weights()
+weighted_points = weights @ initial_points
+plt.plot(
+    initial_points[:, 0],
+    initial_points[:, 1],
+    "o",
+    color="red",
+    markersize=2,
+)
+plt.plot(
+    weighted_points[:, 0],
+    weighted_points[:, 1],
+    "o",
+    color="black",
+    markersize=1,
+)
+plt.savefig("output/test_points.png")
+plt.clf()
 
 print("Visualizing 3D model")
 fig = plt.figure(figsize=(8, 6))

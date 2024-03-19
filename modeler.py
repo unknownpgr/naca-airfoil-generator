@@ -1,6 +1,8 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import List
+from matplotlib import pyplot as plt
+import time
 
 
 @dataclass
@@ -115,20 +117,20 @@ class Modeler:
     def __init__(self):
         test_weights = [
             # Point
-            # [1, 0, 0, 0],
-            # [0, 1, 0, 0],
-            # [0, 0, 1, 0],
-            # [0, 0, 0, 1],
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
             # Somewhere in the square
             [5, 1, 1, 1],
             [1, 5, 1, 1],
             [1, 1, 5, 1],
             [1, 1, 1, 5],
             # Middle of the edge
-            [1, 1, 0, 0],
-            [0, 1, 0, 1],
-            [0, 0, 1, 1],
-            [1, 0, 1, 0],
+            [4, 4, 1, 1],
+            [4, 1, 4, 1],
+            [1, 4, 1, 4],
+            [1, 1, 4, 4],
             # Center
             [1, 1, 1, 1],
         ]
@@ -159,17 +161,64 @@ class Modeler:
     def __test_flatness(self, rect, func):
         """
         Test the flatness (linearity) of the given rect.
-        Compare W@f(rect) and f(W@rect).
         """
         test_inputs = self.__test_weights @ rect
         test_outputs = func(test_inputs)
 
-        output_points = func(rect)
-        weighted_output = self.__test_weights @ output_points
+        """
+        The transformed shape should be planar.
+        It means that there exists a plane that contains all the points.
+        
+        A plane is determined by center point and normal vector.
+        We can roughly assume that the center point is the average of the
+        first four points, and the normal vector is the cross product of diagonals.
+        """
 
-        diff = test_outputs - weighted_output
-        diff = np.linalg.norm(diff, axis=1)
-        return np.max(diff)
+        ps = test_outputs[:4]
+        center = ps.mean(axis=0)
+        normal = np.cross(ps[0] - ps[3], ps[1] - ps[2])
+        normal /= np.linalg.norm(normal)
+
+        """
+        Before calculating, for the ease of calculation, we can move the center to the origin
+        and rotate the normal vector to the z-axis.
+        """
+
+        test_outputs -= center
+        original_z = normal
+        original_x = ps[0] - ps[3]
+        original_x /= np.linalg.norm(original_x)
+        original_y = np.cross(original_z, original_x)
+        original_basis = np.vstack([original_x, original_y, original_z])
+        original_basis_inv = np.linalg.inv(original_basis)
+        test_outputs = test_outputs @ original_basis_inv
+
+        """
+        Before calculating the distance, we must check that the transformed shape is convex.
+        It means that the other points can be represented as the convex combination of the first four points.
+        we should flatten the points to the plane because the points are not on same plane in general.
+        """
+
+        flattened_points = test_outputs[:, :2]
+        flattened_points -= flattened_points[0]
+        basis = flattened_points[1:3]
+        test_points = flattened_points[4:]
+        a = np.linalg.lstsq(basis.T, test_points.T, rcond=None)[0].T
+        if np.any(a < 0) or np.any(a > 1):
+            return np.inf
+
+        """
+        Because the plane is now the z=0 plane, the distance of the points to the plane
+        is simply the z-coordinate of the points.
+        """
+
+        distances = test_outputs[:, 2]
+
+        """
+        The flatness of the shape is the maximum distance of the points to the plane.
+        """
+
+        return np.max(np.abs(distances))
 
     def model(self, func, max_depth=7, threshold=0.05):
         self.__initialize()
@@ -230,3 +279,6 @@ class Modeler:
             initial_bottom=Modeler.__expand_edge(first_face[2]),
             initial_top=Modeler.__expand_edge(first_face[3]),
         )
+
+    def get_weights(self):
+        return self.__test_weights
