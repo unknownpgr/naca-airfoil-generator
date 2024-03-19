@@ -68,7 +68,7 @@ class Modeler:
         return triangles
 
     @staticmethod
-    def weave_edges(model, edge1, edge2):
+    def weave_edges(model, edge1, edge2, reverse_face=False):
         vs1 = model.vertices[edge1]
         vs2 = model.vertices[edge2]
 
@@ -94,6 +94,9 @@ class Modeler:
                 new_faces.append([edge1[i1], edge2[i2], edge1[i1 + 1]])
                 i1 += 1
 
+        if reverse_face:
+            new_faces = [f[::-1] for f in new_faces]
+
         model.faces = np.vstack([model.faces, new_faces])
 
     @staticmethod
@@ -113,10 +116,8 @@ class Modeler:
         n = len(edge)
         left = edge[: n // 2]
         right = edge[n // 2 :]
-        if reverse_face:
-            left, right = right, left
         left = left[::-1]
-        Modeler.weave_edges(model, left, right)
+        Modeler.weave_edges(model, left, right, reverse_face=reverse_face)
 
     def __init__(self):
         test_weights = [

@@ -1,14 +1,13 @@
 from model import wing_with_mount
 from modeler import Modeler
 from matplotlib import pyplot as plt
-import os
 
 print("Start modeling")
 modeler = Modeler()
 model = modeler.model(wing_with_mount, max_depth=8, threshold=0.005)
-Modeler.close_edge(model, model.initial_bottom, reverse_face=True)
-Modeler.close_edge(model, model.initial_top)
-Modeler.weave_edges(model, model.initial_right, model.initial_left)
+Modeler.close_edge(model, model.initial_left)
+Modeler.close_edge(model, model.initial_right, reverse_face=True)
+Modeler.weave_edges(model, model.initial_bottom, model.initial_top)
 print("Done.\n")
 
 print("Writing to file")
@@ -17,7 +16,7 @@ with open("output/model.obj", "w") as f:
     f.write(obj_str)
 print("Done.\n")
 
-print("Visualizing")
+print("Visualizing points")
 plt.plot(
     model.points[:, 0],
     model.points[:, 1],
@@ -28,6 +27,19 @@ plt.plot(
 plt.savefig("output/points.png")
 plt.clf()
 
+print("Visualizing 2D mesh")
+plt.triplot(
+    model.points[:, 0],
+    model.points[:, 1],
+    model.faces,
+    color="black",
+    linewidth=0.1,
+)
+plt.savefig("output/mesh.png")
+plt.clf()
+
+
+print("Visualizing 3D model")
 fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111, projection="3d")
 ax.set_box_aspect([1, 1, 1])
@@ -50,5 +62,7 @@ ax.axis("equal")
 i = 0
 for angle in range(0, 181, 45):
     i += 1
+    filename = f"output/model-{i}.png"
+    print(f"Saving {filename}")
     ax.view_init(elev=45, azim=angle - 90)
-    fig.savefig(f"output/airfoil-{i}.png", bbox_inches="tight", pad_inches=0, dpi=300)
+    fig.savefig(filename, bbox_inches="tight", pad_inches=0, dpi=300)

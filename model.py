@@ -75,8 +75,8 @@ def wing(
     z: backword 
     """
 
-    ts = x[:, 0]  # Airfoil parameter
-    ls = x[:, 1]  # Spanwise parameter
+    ls = x[:, 0]  # Spanwise parameter
+    ts = x[:, 1]  # Airfoil parameter
 
     # Get airfoil shape
     zp, yp = airfoil(ts, angle_of_attack=angle_of_attack)
@@ -108,8 +108,8 @@ def circle(t, r=1, x=0, y=0):
 
 def mount(x):
     x = np.array(x, copy=True)
-    ts = x[:, 0]  # Airfoil parameter
-    ls = x[:, 1]  # Spanwise parameter
+    ls = x[:, 0]  # Spanwise parameter
+    ts = x[:, 1]  # Airfoil parameter
 
     T = 0.1
 
@@ -128,13 +128,13 @@ def wing_with_mount(x):
     x = np.array(x, copy=True)
 
     T = 0.5
-    is_mount = x[:, 1] <= T
+    is_mount = x[:, 0] <= T
 
     input_mount = x[is_mount]
-    input_mount[:, 1] = input_mount[:, 1] / T
+    input_mount[:, 0] = input_mount[:, 0] / T
 
     input_wing = x[~is_mount]
-    input_wing[:, 1] = (input_wing[:, 1] - T) / (1 - T)
+    input_wing[:, 0] = (input_wing[:, 0] - T) / (1 - T)
 
     part_mount = mount(input_mount)
     part_wing = wing(input_wing)
