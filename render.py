@@ -6,9 +6,9 @@ from matplotlib import pyplot as plt
 print("Start modeling")
 modeler = Modeler()
 model = modeler.model(wing_with_mount, max_depth=7, threshold=0.005)
-Modeler.close_edge(model, model.initial_left)
-Modeler.close_edge(model, model.initial_right, reverse_face=True)
-Modeler.weave_edges(model, model.initial_bottom, model.initial_top)
+model.close_edge(model.initial_left)
+model.close_edge(model.initial_right, reverse_face=True)
+model.weave_edges(model.initial_bottom, model.initial_top)
 print("Done.\n")
 
 print("Writing to file")

@@ -1,8 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import List
-from matplotlib import pyplot as plt
-import time
 
 
 @dataclass
@@ -23,13 +21,9 @@ class Model:
             obj += f"f {f[0] + 1} {f[1] + 1} {f[2] + 1}\n"
         return obj
 
-
-class Modeler:
-
-    @staticmethod
-    def weave_edges(model, edge1, edge2, reverse_face=False):
-        vs1 = model.vertices[edge1]
-        vs2 = model.vertices[edge2]
+    def weave_edges(self, edge1, edge2, reverse_face=False):
+        vs1 = self.vertices[edge1]
+        vs2 = self.vertices[edge2]
 
         new_faces = []
         i1 = 0
@@ -56,10 +50,9 @@ class Modeler:
         if reverse_face:
             new_faces = [f[::-1] for f in new_faces]
 
-        model.faces = np.vstack([model.faces, new_faces])
+        self.faces = np.vstack([self.faces, new_faces])
 
-    @staticmethod
-    def close_edge(model, edge, reverse_face=False):
+    def close_edge(self, edge, reverse_face=False):
         if len(edge) < 3:
             raise ValueError("Cannot close an edge with less than 3 vertices")
 
@@ -69,15 +62,17 @@ class Modeler:
                 new_faces.append([edge[0], edge[2], edge[1]])
             else:
                 new_faces.append([edge[0], edge[1], edge[2]])
-            model.faces = np.vstack([model.faces, new_faces])
+            self.faces = np.vstack([self.faces, new_faces])
             return
 
         n = len(edge)
         left = edge[: n // 2]
         right = edge[n // 2 :]
         left = left[::-1]
-        Modeler.weave_edges(model, left, right, reverse_face=reverse_face)
+        self.weave_edges(left, right, reverse_face=reverse_face)
 
+
+class Modeler:
     def __init__(self):
         test_weights = [
             # Point
