@@ -1,4 +1,4 @@
-from airfoil import wing_with_mount
+from model import wing_with_mount
 from modeler import Modeler
 from matplotlib import pyplot as plt
 import os
