@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 print("Start modeling")
 modeler = Modeler()
-model = modeler.model(wing_with_mount, max_depth=7, threshold=0.01)
+model = modeler.model(wing_with_mount, max_depth=7, threshold=0.005)
 Modeler.close_edge(model, model.initial_left)
 Modeler.close_edge(model, model.initial_right, reverse_face=True)
 Modeler.weave_edges(model, model.initial_bottom, model.initial_top)

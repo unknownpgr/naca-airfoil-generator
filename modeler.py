@@ -27,42 +27,6 @@ class Model:
 class Modeler:
 
     @staticmethod
-    def __expand_edge(edge):
-        i1, i2, children = edge
-        if not children:
-            return [i1, i2]
-        return Modeler.__expand_edge(children[0])[:-1] + Modeler.__expand_edge(
-            children[1]
-        )
-
-    @staticmethod
-    def __expand_face(face):
-        e1 = Modeler.__expand_edge(face[0])  # Left
-        e2 = Modeler.__expand_edge(face[1])  # Right
-        e3 = Modeler.__expand_edge(face[2])  # Bottom
-        e4 = Modeler.__expand_edge(face[3])  # Top
-        et = e3 + e2 + e4[::-1] + e1[::-1]
-        eu = [et[0]]
-        for i in range(1, len(et)):
-            if et[i] != et[i - 1]:
-                eu.append(et[i])
-        return eu
-
-    @staticmethod
-    def __triangulate(points):
-        if len(points) == 3:
-            raise ValueError("Cannot triangulate a triangle")
-        if len(points) == 4:
-            return [
-                [points[0], points[1], points[2]],
-                [points[0], points[2], points[3]],
-            ]
-        triangles = []
-        for i in range(1, len(points) - 1):
-            triangles.append([points[0], points[i], points[i + 1]])
-        return triangles
-
-    @staticmethod
     def weave_edges(model, edge1, edge2, reverse_face=False):
         vs1 = model.vertices[edge1]
         vs2 = model.vertices[edge2]
@@ -264,9 +228,53 @@ class Modeler:
             stack.append((depth + 1, [mt, rt, mr, tr]))
 
         result_faces = []
+
+        def expand_edge(edge):
+            i1, i2, children = edge
+            if not children:
+                return [i1, i2]
+            return expand_edge(children[0])[:-1] + expand_edge(children[1])
+
+        def expand_face(face):
+            e1 = expand_edge(face[0])  # Left
+            e2 = expand_edge(face[1])  # Right
+            e3 = expand_edge(face[2])  # Bottom
+            e4 = expand_edge(face[3])  # Top
+            et = e3 + e2 + e4[::-1] + e1[::-1]
+            eu = [et[0]]
+            for i in range(1, len(et)):
+                if et[i] != et[i - 1]:
+                    eu.append(et[i])
+            return eu
+
+        def triangulate(face):
+            f = expand_face(face)
+            assert f[0] == f[-1]
+            f = f[:-1]
+            n = len(f)
+
+            if n < 3:
+                raise ValueError("Cannot triangulate a face with less than 3 vertices")
+
+            if n == 3:
+                result_faces.append(f)
+                return
+
+            if n == 4:
+                result_faces.append([f[0], f[1], f[2]])
+                result_faces.append([f[0], f[2], f[3]])
+                return
+
+            # Triangulate the face
+            center = self.__points[f].mean(axis=0)
+            ci = len(self.__points)
+            self.__points = np.vstack([self.__points, center])
+
+            for i in range(n):
+                result_faces.append([f[i], f[(i + 1) % n], ci])
+
         for face in faces:
-            result_faces.extend(Modeler.__triangulate(Modeler.__expand_face(face)))
-        result_faces = np.array(result_faces, dtype=np.int32)
+            triangulate(face)
 
         vertices = func(self.__points)
 
@@ -274,10 +282,10 @@ class Modeler:
             points=self.__points,
             faces=result_faces,
             vertices=vertices,
-            initial_left=Modeler.__expand_edge(first_face[0]),
-            initial_right=Modeler.__expand_edge(first_face[1]),
-            initial_bottom=Modeler.__expand_edge(first_face[2]),
-            initial_top=Modeler.__expand_edge(first_face[3]),
+            initial_left=expand_edge(first_face[0]),
+            initial_right=expand_edge(first_face[1]),
+            initial_bottom=expand_edge(first_face[2]),
+            initial_top=expand_edge(first_face[3]),
         )
 
     def get_weights(self):
