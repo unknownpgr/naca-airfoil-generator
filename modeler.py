@@ -134,16 +134,15 @@ class Modeler:
         """
 
         ps = test_outputs[:4]
-        center = ps.mean(axis=0)
         normal = np.cross(ps[0] - ps[3], ps[1] - ps[2])
         normal /= np.linalg.norm(normal)
 
         """
-        Before calculating, for the ease of calculation, we can move the center to the origin
-        and rotate the normal vector to the z-axis.
+        Before calculating, for the ease of calculation, we can 
+        move the plane to be the z=0 plane.        
         """
 
-        test_outputs -= center
+        test_outputs -= test_outputs[0]
         original_z = normal
         original_x = ps[0] - ps[3]
         original_x /= np.linalg.norm(original_x)
@@ -159,7 +158,6 @@ class Modeler:
         """
 
         flattened_points = test_outputs[:, :2]
-        flattened_points -= flattened_points[0]
         basis = flattened_points[1:3]
         test_points = flattened_points[4:]
         a = np.linalg.lstsq(basis.T, test_points.T, rcond=None)[0].T
